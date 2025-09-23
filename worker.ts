@@ -1,13 +1,19 @@
 /// <reference lib="webworker" />
 
-const methods = {
-  sum: (a: number, b: number) => a + b,
-  mul: (a: number, b: number) => a * b,
-  fib: (n: number): number => (n <= 1 ? n : methods.fib(n - 1) + methods.fib(n - 2)),
-}
+import type { MethodsImpl } from "./types";
+
+const methods: MethodsImpl = {
+  sum: (a, b) => a + b,
+  mul: (a, b) => a * b,
+  fib: (n) => (n <= 1 ? n : methods.fib(n - 1) + methods.fib(n - 2)),
+};
 
 self.onmessage = async (event: MessageEvent) => {
-  const { id, method, params } = event.data as { id: any; method: keyof typeof methods; params: any[] }
+  const { id, method, params } = event.data as {
+    id: string;
+    method: keyof MethodsImpl;
+    params: unknown[];
+  };
 
   if (methods[method]) {
     try {
