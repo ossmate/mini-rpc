@@ -4,20 +4,12 @@ import type { MethodsImpl } from "./types";
 const worker = new Worker(new URL('./worker.ts', import.meta.url));
 const api = createProxyApi<MethodsImpl>(worker);
 
-async function testFn() {
-  const s = await api.sum(2, 3);
-  const m = await api.mul(3, 4);
-  const f = await api.fib(10);
+async function run() {
+  const sum = await api.sum(2, 3);
+  const product = await api.mul(5, 7);
+  const fib = await api.fib(20);
 
-  return [s, m, f];
+  console.log({ sum, product, fib });
 }
 
-testFn().then(console.log).catch(console.error);
-
-// ["sum", "mul", "fib", "abc"].forEach((method, i) => {
-//   worker.postMessage({ id: String(i), method, params: method === "fib" ? [10] : [2, 3] });
-// });
-
-// worker.onmessage = (event: MessageEvent) => {
-//   console.log("Got response:", event.data);
-// };
+run().catch(console.error);
