@@ -23,8 +23,16 @@ class EventEmitter {
     this.listeners[event].forEach(handler => handler(...args));
   }
 
+  removeAllListeners(event?: string): void {
+    if (event) {
+      delete this.listeners[event];
+    } else {
+      this.listeners = {};
+    }
+  }
+
   // todo
-  // removeAllListeners(), once()
+  // once()
 }
 
 export default EventEmitter;
