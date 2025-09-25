@@ -31,8 +31,13 @@ class EventEmitter {
     }
   }
 
-  // todo
-  // once()
+  once(event: string, handler: Listener): void {
+    const onceWrapper = (...args: any[]) => {
+      handler(...args);
+      this.off(event, onceWrapper);
+    };
+    this.on(event, onceWrapper);
+  }
 }
 
 export default EventEmitter;
