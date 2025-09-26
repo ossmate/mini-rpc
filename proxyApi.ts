@@ -4,9 +4,16 @@ function createId() {
   return Math.random().toString(36).slice(2);
 }
 
-export function createProxyApi<T extends Record<string, (...args: any) => any>>(worker: Worker): { [K in keyof T]: (...args: Parameters<T[K]>) => Promise<ReturnType<T[K]>>;
+export function createProxyApi<
+  T extends Record<string, (...args: any[]) => any>
+>(
+  worker: Worker
+): {
+  api: { [K in keyof T]: (...args: Parameters<T[K]>) => Promise<ReturnType<T[K]>> };
+  cancelRequest: (id: string) => void;
 } {
   const emitter = new EventEmitter();
+  const pending = new Map<string, () => void>();
 
   // listen for responses from worker
   worker.onmessage = (event: MessageEvent) => {
@@ -15,26 +22,49 @@ export function createProxyApi<T extends Record<string, (...args: any) => any>>(
     emitter.emit(id, { result, error });
   };
 
-return new Proxy({}, {
-  get(_target, prop: string) {
-    return (...params: any[]) => {
-      const id = createId();
+ const api = new Proxy({}, {
+    get(_target, prop: string) {
+      return (...params: any[]) => {
+        const id = createId();
 
-      return new Promise((resolve, reject) => {
-        const handler = (msg: any) => {
-          if (msg.error) reject(new Error(msg.error));
-          else resolve(msg.result);
+        const promise = new Promise((resolve, reject) => {
+          const handler = (msg: any) => {
+            if (msg.error) reject(new Error(msg.error));
+            else resolve(msg.result);
 
-          // cleanup
-          emitter.off(id, handler);
-        };
+            // cleanup
+            emitter.off(id, handler);
+            pending.delete(id);
+          };
 
-        emitter.on(id, handler);
+          emitter.on(id, handler);
 
-        // send request to worker
-        worker.postMessage({ id, method: prop, params });
-      });
-    };
+          pending.set(id, () => {
+            emitter.off(id, handler);
+            pending.delete(id);
+            reject(new Error("Request cancelled"));
+          });
+
+          // send request to worker
+          worker.postMessage({ id, method: prop, params });
+        });
+
+        (promise as any).id = id;
+        return promise;
+      };
+    },
+  }) as any;
+
+  function cancelRequest(id: string) {
+    const cancel = pending.get(id);
+    if (cancel) {
+      cancel();
+      pending.delete(id);
+
+      // optionally let know worker about cancellation
+      worker.postMessage({ type: "cancel", id });
+    }
   }
-}) as any;
+
+  return { api, cancelRequest };
 }
