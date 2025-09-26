@@ -15,29 +15,26 @@ export function createProxyApi<T extends Record<string, (...args: any) => any>>(
     emitter.emit(id, { result, error });
   };
 
-  return new Proxy({}, {
-    get(_target, prop: string) {
-      // method call
-      return (...params: any[]) => {
-        const id = createId()
+return new Proxy({}, {
+  get(_target, prop: string) {
+    return (...params: any[]) => {
+      const id = createId();
 
-        // return a promise
-        return new Promise((resolve, reject) => {
+      return new Promise((resolve, reject) => {
+        const handler = (msg: any) => {
+          if (msg.error) reject(new Error(msg.error));
+          else resolve(msg.result);
 
-          //register callback
-          emitter.on(id, (msg) => {
-            if (msg.error) reject(new Error(msg.error));
-            else resolve(msg.result)
+          // cleanup
+          emitter.off(id, handler);
+        };
 
-            // cleanup
-            emitter.off(id, () => { });
-          })
+        emitter.on(id, handler);
 
-          // send request
-          worker.postMessage({ id, method: prop, params })
-        })
-      }
-    }
+        // send request to worker
+        worker.postMessage({ id, method: prop, params });
+      });
+    };
   }
-) as any;
+}) as any;
 }
